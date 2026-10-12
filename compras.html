@@ -97,6 +97,10 @@
 // Misma URL de la app de precios (el catálogo)
 const API_URL = 'https://script.google.com/macros/s/AKfycbxyWzqm0jsaPqJOJk6MLoQV3MoyWSMfvmGKzlGQzbKBvMOasUTVjkORMRuDCFLUXU24bA/exec';
 
+// Solo Carlos y Edwing (entrando con PIN desde el portal) ven costos
+let VER_COSTOS = false;
+try { VER_COSTOS = localStorage.getItem('srv_ver_costos') === '1'; } catch (e) {}
+
 let productos = [];
 let compras = [];
 let novedades = [];
@@ -169,9 +173,8 @@ function pintarResultados() {
   let html = hallados.map(p => {
     const ya = enLista(p);
     const op = mejorOpcion(p);
-    const provTxt = op.mejor.prov
-      ? esc(op.mejor.prov) + (op.mejor.costo != null ? ' ' + pesos(op.mejor.costo) : '')
-      : (op.mejor.costo != null ? 'sin proveedor ' + pesos(op.mejor.costo) : 'sin proveedor');
+    const costoTxt = VER_COSTOS && op.mejor.costo != null ? ' ' + pesos(op.mejor.costo) : '';
+    const provTxt = (op.mejor.prov ? esc(op.mejor.prov) : 'sin proveedor') + costoTxt;
     return `<div class="res ${ya ? 'ya' : ''}" data-id="${esc(p['ID'])}">
       <div><div class="nombre">${esc(p['Producto'])}</div>
       <div class="meta">${esc(grupo(p))}${p['Presentación'] ? ' · ' + esc(p['Presentación']) : ''} · ${provTxt}</div></div>
@@ -256,11 +259,11 @@ function pintarLista() {
             <div class="nombre">${esc(c['Producto'])}</div>
             <div class="meta">${[
               p && p['Presentación'] ? esc(p['Presentación']) : '',
-              op && op.otro.prov && op.otro.costo != null ? 'alterno: ' + esc(op.otro.prov) + ' ' + pesos(op.otro.costo) : '',
+              VER_COSTOS && op && op.otro.prov && op.otro.costo != null ? 'alterno: ' + esc(op.otro.prov) + ' ' + pesos(op.otro.costo) : '',
               c['Fecha'] ? 'anotado ' + esc(String(c['Fecha']).slice(0, 5)) : ''
             ].filter(Boolean).join(' · ')}</div>
           </div>
-          ${op && op.mejor.costo != null ? `<div class="costo">${pesos(op.mejor.costo)}<small>c/u</small></div>` : ''}
+          ${VER_COSTOS && op && op.mejor.costo != null ? `<div class="costo">${pesos(op.mejor.costo)}<small>c/u</small></div>` : ''}
           <button class="b-ok" data-r="${esc(c['Registro'])}" data-e="Comprado">Comprado</button>
           <button class="b-x" data-r="${esc(c['Registro'])}" data-e="Quitado" title="Quitar">✕</button>
         </div>`).join('')}
