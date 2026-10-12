@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compras SRV</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#fff; --txt:#1d2330; --muted:#6b7280; --line:#e5e7eb;
+    --pri:#1f6feb; --ok:#15803d; --okbg:#dcfce7; --warn:#b45309; --warnbg:#fef3c7; --bad:#b91c1c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+  header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px 0}
+  .cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  h1{font-size:18px;margin:0}
+  .b-mini{background:#eef2f7;color:var(--txt);padding:8px 12px;font-size:14px;font-weight:500}
+  .tabs{display:flex;gap:4px}
+  .tab{flex:1;background:none;border-radius:0;border-bottom:3px solid transparent;color:var(--muted);padding:10px 4px;font-size:14px}
+  .tab.on{color:var(--pri);border-bottom-color:var(--pri)}
+  .tab .n{display:inline-block;min-width:20px;padding:1px 6px;border-radius:999px;background:#eef2f7;color:var(--txt);font-size:12px;margin-left:4px}
+  .tab.on .n{background:var(--pri);color:#fff}
+  main{padding:14px 16px 60px;max-width:720px;margin:0 auto}
+  .vista{display:none}
+  .vista.on{display:block}
+  .ayuda{color:var(--muted);font-size:13px;margin:0 0 10px}
+  input,textarea{width:100%;padding:12px 14px;font-size:16px;border:1px solid var(--line);border-radius:10px;font-family:inherit;outline:none}
+  input:focus,textarea:focus{border-color:var(--pri)}
+  textarea{min-height:70px;resize:vertical}
+  button{border:0;border-radius:10px;padding:12px 14px;font-size:15px;cursor:pointer;font-weight:600;font-family:inherit}
+  .b-pri{background:var(--pri);color:#fff;width:100%;margin-top:8px}
+  .res{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer}
+  .res.ya{opacity:.55;cursor:default}
+  .res .accion{color:var(--pri);font-weight:700;font-size:14px;white-space:nowrap}
+  .res.ya .accion{color:var(--ok)}
+  .res.libre{border-style:dashed}
+  .nombre{font-weight:600;font-size:15px}
+  .meta{color:var(--muted);font-size:12px;margin-top:2px}
+  .grupo{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden}
+  .grupo-cab{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f9fafb;border-bottom:1px solid var(--line)}
+  .grupo-cab b{font-size:15px}
+  .grupo-cab span{color:var(--muted);font-size:12px}
+  .item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:0}
+  .item .info{flex:1;min-width:0}
+  .item .costo{font-weight:700;font-size:14px;white-space:nowrap;text-align:right}
+  .item .costo small{display:block;font-weight:400;color:var(--muted);font-size:11px}
+  .b-ok{background:var(--okbg);color:var(--ok);padding:9px 11px;font-size:13px}
+  .b-x{background:none;color:var(--muted);padding:9px 6px;font-size:16px}
+  .vacio{color:var(--muted);text-align:center;padding:30px 10px;font-size:14px}
+  .nov{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px;display:flex;gap:10px;align-items:flex-start}
+  .nov .info{flex:1;white-space:pre-wrap;font-size:15px}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:10px;
+         font-size:14px;opacity:0;transition:opacity .2s;z-index:20;pointer-events:none;max-width:90vw;text-align:center}
+  #toast.ver{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <div class="cab">
+    <h1>Compras SRV</h1>
+    <button class="b-mini" id="b-recargar">↻ Actualizar</button>
+  </div>
+  <div class="tabs">
+    <button class="tab on" data-v="anotar">Anotar</button>
+    <button class="tab" data-v="lista">Lista <span class="n" id="n-lista">0</span></button>
+    <button class="tab" data-v="novedades">Novedades <span class="n" id="n-nov">0</span></button>
+  </div>
+</header>
+
+<main>
+  <!-- ANOTAR -->
+  <section class="vista on" id="v-anotar">
+    <p class="ayuda">Escribe lo que dice la hoja (ej: doritos) y toca el producto. Queda en la lista de compras.</p>
+    <input id="buscar" type="search" placeholder="Buscar producto..." autocomplete="off">
+    <div id="resultados"></div>
+  </section>
+
+  <!-- LISTA -->
+  <section class="vista" id="v-lista">
+    <button class="b-mini" id="b-compartir" style="width:100%;margin-bottom:12px;">Compartir lista por WhatsApp</button>
+    <div id="lista"></div>
+  </section>
+
+  <!-- NOVEDADES -->
+  <section class="vista" id="v-novedades">
+    <p class="ayuda">Lo que no es una compra pero no se puede olvidar.</p>
+    <textarea id="f-nov" placeholder="Ej: la nevera de bebidas hace ruido"></textarea>
+    <button class="b-pri" id="b-nov">Agregar novedad</button>
+    <div id="novedades"></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// Misma URL de la app de precios (el catálogo)
+const API_URL = 'https://script.google.com/macros/s/AKfycbxyWzqm0jsaPqJOJk6MLoQV3MoyWSMfvmGKzlGQzbKBvMOasUTVjkORMRuDCFLUXU24bA/exec';
+
+let productos = [];
+let compras = [];
+let novedades = [];
+
+const $ = id => document.getElementById(id);
+const num = v => { const n = Number(String(v ?? '').replace(/[^\d]/g, '')); return n > 0 ? n : null; };
+const pesos = n => n == null ? '' : '$' + Math.round(n).toLocaleString('es-CO');
+const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const grupo = p => p['Subcategoría'] || p['Categoría'] || 'Otros';
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('ver');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('ver'), 2200);
+}
+
+async function post(cuerpo) {
+  const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify(cuerpo) });
+  const d = await r.json();
+  if (!d.ok) throw new Error(d.error || 'Error');
+  return d;
+}
+
+async function cargar() {
+  $('resultados').innerHTML = '<div class="vacio">Cargando...</div>';
+  try {
+    const r = await fetch(API_URL + '?vista=compras');
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    productos = d.productos || [];
+    compras = d.compras || [];
+    novedades = d.novedades || [];
+    pintarTodo();
+  } catch (e) {
+    $('resultados').innerHTML = '<div class="vacio">No se pudo cargar. Revisa la conexión.</div>';
+  }
+}
+
+function pintarTodo() {
+  pintarResultados(); pintarLista(); pintarNovedades();
+  $('n-lista').textContent = compras.length;
+  $('n-nov').textContent = novedades.length;
+}
+
+// ---------- Proveedor más barato de un producto ----------
+function mejorOpcion(p) {
+  if (!p) return null;
+  const a = { prov: String(p['Proveedor'] || '').trim(), costo: num(p['Costo']) };
+  const b = { prov: String(p['Proveedor alterno'] || '').trim(), costo: num(p['Costo alterno']) };
+  let mejor = a, otro = b;
+  if (b.costo != null && (a.costo == null || b.costo < a.costo)) { mejor = b; otro = a; }
+  if (!mejor.prov && otro.prov && mejor.costo == null) { mejor = otro; otro = { prov: '', costo: null }; }
+  return { mejor, otro };
+}
+
+const enLista = p => compras.some(c => String(c['Código']) === String(p['ID']));
+
+// ---------- ANOTAR ----------
+function pintarResultados() {
+  const q = norm($('buscar').value);
+  if (q.length < 2) {
+    $('resultados').innerHTML = '';
+    return;
+  }
+  const palabras = q.split(' ');
+  const hallados = productos
+    .filter(p => palabras.every(w => norm(p['Producto'] + ' ' + grupo(p)).includes(w)))
+    .slice(0, 10);
+
+  let html = hallados.map(p => {
+    const ya = enLista(p);
+    return `<div class="res ${ya ? 'ya' : ''}" data-id="${esc(p['ID'])}">
+      <div><div class="nombre">${esc(p['Producto'])}</div>
+      <div class="meta">${esc(grupo(p))}${p['Presentación'] ? ' · ' + esc(p['Presentación']) : ''}</div></div>
+      <div class="accion">${ya ? '✓ En la lista' : '+ Anotar'}</div>
+    </div>`;
+  }).join('');
+
+  const texto = $('buscar').value.trim();
+  const libreYa = compras.some(c => !c['Código'] && norm(c['Producto']) === q);
+  html += `<div class="res libre ${libreYa ? 'ya' : ''}" data-libre="1">
+    <div><div class="nombre">"${esc(texto)}"</div><div class="meta">${hallados.length ? 'No es ninguno de estos' : 'No está en el catálogo'}, anotar tal cual</div></div>
+    <div class="accion">${libreYa ? '✓ En la lista' : '+ Anotar'}</div>
+  </div>`;
+  $('resultados').innerHTML = html;
+}
+
+async function anotar(codigo, producto) {
+  const temp = { 'Registro': 'tmp' + Date.now(), 'Código': codigo, 'Producto': producto, 'Fecha': '' };
+  compras.push(temp);
+  $('buscar').value = '';
+  pintarTodo();
+  $('buscar').focus();
+  try {
+    const d = await post({ accion: 'compra_agregar', codigo, producto });
+    if (d.repetido) {
+      compras = compras.filter(c => c !== temp);
+      toast('Ya estaba en la lista: ' + producto);
+    } else {
+      temp['Registro'] = d.registro;
+      toast('Anotado: ' + producto);
+    }
+  } catch (e) {
+    compras = compras.filter(c => c !== temp);
+    toast('No se pudo anotar ' + producto + '. Intenta de nuevo.');
+  }
+  pintarTodo();
+}
+
+$('resultados').addEventListener('click', e => {
+  const r = e.target.closest('.res');
+  if (!r || r.classList.contains('ya')) return;
+  if (r.dataset.libre) {
+    const texto = $('buscar').value.trim();
+    if (texto) anotar('', texto.charAt(0).toUpperCase() + texto.slice(1));
+    return;
+  }
+  const p = productos.find(x => String(x['ID']) === r.dataset.id);
+  if (p) anotar(p['ID'], p['Producto']);
+});
+$('buscar').addEventListener('input', pintarResultados);
+
+// ---------- LISTA ----------
+function agrupar() {
+  const grupos = {};
+  compras.forEach(c => {
+    const p = productos.find(x => String(x['ID']) === String(c['Código']));
+    const op = mejorOpcion(p);
+    const prov = op && op.mejor.prov ? op.mejor.prov : (p ? 'Sin proveedor asignado' : 'Fuera del catálogo');
+    (grupos[prov] = grupos[prov] || []).push({ c, p, op });
+  });
+  // Proveedores con más productos primero; "sin proveedor" y "fuera" al final
+  return Object.entries(grupos).sort((a, b) => {
+    const fa = /^(Sin|Fuera)/.test(a[0]), fb = /^(Sin|Fuera)/.test(b[0]);
+    if (fa !== fb) return fa ? 1 : -1;
+    return b[1].length - a[1].length;
+  });
+}
+
+function pintarLista() {
+  if (!compras.length) {
+    $('lista').innerHTML = '<div class="vacio">No hay nada pendiente por comprar.</div>';
+    $('b-compartir').style.display = 'none';
+    return;
+  }
+  $('b-compartir').style.display = '';
+  $('lista').innerHTML = agrupar().map(([prov, items]) => `
+    <div class="grupo">
+      <div class="grupo-cab"><b>${esc(prov)}</b><span>${items.length} producto${items.length === 1 ? '' : 's'}</span></div>
+      ${items.map(({ c, p, op }) => `
+        <div class="item">
+          <div class="info">
+            <div class="nombre">${esc(c['Producto'])}</div>
+            <div class="meta">${[
+              p && p['Presentación'] ? esc(p['Presentación']) : '',
+              op && op.otro.prov && op.otro.costo != null ? 'alterno: ' + esc(op.otro.prov) + ' ' + pesos(op.otro.costo) : '',
+              c['Fecha'] ? 'anotado ' + esc(String(c['Fecha']).slice(0, 5)) : ''
+            ].filter(Boolean).join(' · ')}</div>
+          </div>
+          ${op && op.mejor.costo != null ? `<div class="costo">${pesos(op.mejor.costo)}<small>c/u</small></div>` : ''}
+          <button class="b-ok" data-r="${esc(c['Registro'])}" data-e="Comprado">Comprado</button>
+          <button class="b-x" data-r="${esc(c['Registro'])}" data-e="Quitado" title="Quitar">✕</button>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+async function cerrarCompra(registro, estado) {
+  const item = compras.find(c => c['Registro'] === registro);
+  if (!item) return;
+  if (String(registro).startsWith('tmp')) return toast('Espera un momento, se está guardando');
+  if (estado === 'Quitado' && !confirm('¿Quitar "' + item['Producto'] + '" de la lista sin comprarlo?')) return;
+  compras = compras.filter(c => c !== item);
+  pintarTodo();
+  try {
+    await post({ accion: 'cerrar', hoja: 'Compras', registro, estado });
+    toast(estado === 'Comprado' ? 'Comprado: ' + item['Producto'] : 'Quitado de la lista');
+  } catch (e) {
+    compras.push(item); pintarTodo();
+    toast('No se pudo guardar. Intenta de nuevo.');
+  }
+}
+
+$('lista').addEventListener('click', e => {
+  const b = e.target.closest('button[data-r]');
+  if (b) cerrarCompra(b.dataset.r, b.dataset.e);
+});
+
+$('b-compartir').addEventListener('click', async () => {
+  const texto = '*Lista de compras SRV*\n' + agrupar().map(([prov, items]) =>
+    '\n*' + prov + '*\n' + items.map(({ c }) => '- ' + c['Producto']).join('\n')).join('\n');
+  try {
+    if (navigator.share) { await navigator.share({ text: texto }); return; }
+  } catch (e) { if (e.name === 'AbortError') return; }
+  location.href = 'https://wa.me/?text=' + encodeURIComponent(texto);
+});
+
+// ---------- NOVEDADES ----------
+function pintarNovedades() {
+  $('novedades').innerHTML = novedades.length ? novedades.map(n => `
+    <div class="nov">
+      <div class="info">${esc(n['Nota'])}<div class="meta">${esc(n['Fecha'] || 'ahora')}</div></div>
+      <button class="b-ok" data-r="${esc(n['Registro'])}">Resuelto</button>
+    </div>`).join('') : '<div class="vacio">Sin novedades pendientes.</div>';
+}
+
+$('b-nov').addEventListener('click', async () => {
+  const nota = $('f-nov').value.trim();
+  if (!nota) return toast('Escribe la novedad');
+  const btn = $('b-nov');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  try {
+    const d = await post({ accion: 'novedad_agregar', nota });
+    novedades.push({ 'Registro': d.registro, 'Nota': nota, 'Fecha': '' });
+    $('f-nov').value = '';
+    pintarTodo();
+    toast('Novedad agregada');
+  } catch (e) {
+    toast('No se pudo guardar. Intenta de nuevo.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Agregar novedad';
+  }
+});
+
+$('novedades').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-r]');
+  if (!b) return;
+  const item = novedades.find(n => n['Registro'] === b.dataset.r);
+  if (!item) return;
+  novedades = novedades.filter(n => n !== item);
+  pintarTodo();
+  try {
+    await post({ accion: 'cerrar', hoja: 'Novedades', registro: item['Registro'], estado: 'Resuelto' });
+    toast('Marcada como resuelta');
+  } catch (err) {
+    novedades.push(item); pintarTodo();
+    toast('No se pudo guardar. Intenta de nuevo.');
+  }
+});
+
+// ---------- Pestañas ----------
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+  document.querySelectorAll('.vista').forEach(v => v.classList.toggle('on', v.id === 'v-' + t.dataset.v));
+  if (t.dataset.v === 'anotar') $('buscar').focus();
+}));
+$('b-recargar').addEventListener('click', cargar);
+
+cargar();
+</script>
+</body>
+</html>
