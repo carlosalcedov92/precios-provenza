@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Precios SRV</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#fff; --txt:#1d2330; --muted:#6b7280; --line:#e5e7eb;
+    --pri:#1f6feb; --ok:#15803d; --okbg:#dcfce7; --warn:#b45309; --warnbg:#fef3c7; --bad:#b91c1c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+  header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px 10px}
+  .cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  h1{font-size:18px;margin:0}
+  #b-nuevo{background:var(--pri);color:#fff;padding:8px 12px;font-size:14px}
+  #nuevo-campos{display:none}
+  #panel.modo-nuevo #nuevo-campos{display:block}
+  #panel.modo-nuevo #b-swap{display:none}
+  #buscar{width:100%;padding:12px 14px;font-size:16px;border:1px solid var(--line);border-radius:10px;outline:none}
+  #buscar:focus{border-color:var(--pri)}
+  #chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
+  #chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
+  .chip.on{background:var(--pri);border-color:var(--pri);color:#fff}
+  main{padding:12px 16px 40px;max-width:720px;margin:0 auto}
+  #estado{color:var(--muted);font-size:13px;margin:4px 0 10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;cursor:pointer}
+  .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .nombre{font-weight:600;font-size:15px}
+  .meta{color:var(--muted);font-size:12px;margin-top:2px}
+  .venta{text-align:right;font-weight:700;font-size:15px;white-space:nowrap}
+  .venta small{display:block;font-weight:400;color:var(--muted);font-size:11px}
+  .prov{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;margin-top:8px;padding:7px 9px;border-radius:8px;background:#f9fafb}
+  .prov.mejor{background:var(--okbg)}
+  .prov .q{color:var(--muted)}
+  .tag{font-size:11px;font-weight:600;color:var(--ok);margin-left:6px}
+  .mg{font-weight:600}
+  .mg.bajo{color:var(--bad)} .mg.medio{color:var(--warn)} .mg.alto{color:var(--ok)}
+  .nota{font-size:12px;color:var(--warn);background:var(--warnbg);border-radius:6px;padding:5px 8px;margin-top:8px}
+  .vacio{color:var(--muted);font-size:13px;margin-top:8px;font-style:italic}
+  /* Panel de edición */
+  #fondo{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:10}
+  #panel{position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:16px 16px 0 0;padding:16px;z-index:11;
+         max-height:90vh;overflow:auto;transform:translateY(100%);transition:transform .2s;max-width:720px;margin:0 auto}
+  #panel.abierto{transform:translateY(0)}
+  #panel h2{font-size:16px;margin:0 0 2px}
+  #panel .meta{margin-bottom:12px}
+  fieldset{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 10px}
+  legend{font-size:12px;color:var(--muted);padding:0 4px}
+  label{display:block;font-size:12px;color:var(--muted);margin:6px 0 3px}
+  input,textarea,select{width:100%;padding:10px 12px;font-size:16px;border:1px solid var(--line);border-radius:8px;font-family:inherit}
+  textarea{min-height:60px;resize:vertical}
+  select{background:#fff;appearance:auto}
+  .fila2{display:grid;grid-template-columns:1.4fr 1fr;gap:8px}
+  .acciones{display:flex;gap:8px;margin-top:6px}
+  button{border:0;border-radius:10px;padding:12px 14px;font-size:15px;cursor:pointer;font-weight:600}
+  .b-pri{background:var(--pri);color:#fff;flex:1}
+  .b-sec{background:#eef2f7;color:var(--txt)}
+  .b-swap{width:100%;background:#eef2f7;color:var(--txt);margin-bottom:10px;font-weight:500}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:10px;
+         font-size:14px;opacity:0;transition:opacity .2s;z-index:20;pointer-events:none}
+  #toast.ver{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <div class="cab"><h1>Precios SRV</h1><button id="b-nuevo">+ Nuevo producto</button></div>
+  <input id="buscar" type="search" placeholder="Buscar producto o proveedor..." autocomplete="off">
+  <div id="chips"></div>
+</header>
+
+<main>
+  <div id="estado">Cargando catálogo...</div>
+  <div id="lista"></div>
+</main>
+
+<div id="fondo"></div>
+<div id="panel">
+  <h2 id="p-nombre"></h2>
+  <div class="meta" id="p-meta"></div>
+
+  <div id="nuevo-campos">
+    <label>Nombre del producto</label>
+    <input id="f-nombre" placeholder="Ej: Gatorade naranja">
+    <div class="fila2">
+      <div><label>Categoría</label>
+        <select id="f-cat">
+          <option value="">Escoger...</option>
+          <option>Reventa</option><option>Producción</option><option>Aseo</option><option>Servicio</option>
+        </select></div>
+      <div id="caja-sub"><label>Grupo</label>
+        <select id="f-sub">
+          <option value="">Escoger...</option>
+          <option>Bebidas</option><option>Comidas</option><option>Paquetes</option><option>Galletas</option>
+          <option>Dulces</option><option>Lácteos y helados</option><option>Frutas</option>
+        </select></div>
+    </div>
+  </div>
+
+  <div class="fila2">
+    <div><label>Presentación</label><input id="f-pres" placeholder="Ej: paca x 24"></div>
+    <div><label>Unidades por paquete</label><input id="f-unid" inputmode="numeric"></div>
+  </div>
+
+  <label>Precio de venta</label>
+  <input id="f-venta" inputmode="numeric">
+
+  <fieldset>
+    <legend>Proveedor habitual</legend>
+    <div class="fila2">
+      <div><label>Proveedor</label><select id="f-prov"></select></div>
+      <div><label>Costo por unidad</label><input id="f-costo" inputmode="numeric"></div>
+    </div>
+    <label>Nota</label>
+    <input id="f-nota" placeholder="Ej: trae 24+2, entrega martes...">
+  </fieldset>
+
+  <button class="b-swap" id="b-swap">⇅ Intercambiar habitual y alterno</button>
+
+  <fieldset>
+    <legend>Proveedor alterno</legend>
+    <div class="fila2">
+      <div><label>Proveedor</label><select id="f-prov2"></select></div>
+      <div><label>Costo por unidad</label><input id="f-costo2" inputmode="numeric"></div>
+    </div>
+    <label>Nota</label>
+    <input id="f-nota2" placeholder="Ej: hay que ir a recogerlo...">
+  </fieldset>
+
+  <div class="acciones">
+    <button class="b-sec" id="b-cancelar">Cancelar</button>
+    <button class="b-pri" id="b-guardar">Guardar</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===== CONFIGURACIÓN: pega aquí la URL de la App web de Apps Script =====
+const API_URL = 'https://script.google.com/macros/s/AKfycbxyWzqm0jsaPqJOJk6MLoQV3MoyWSMfvmGKzlGQzbKBvMOasUTVjkORMRuDCFLUXU24bA/exec';
+
+const PROVEEDORES_BASE = ['Fritos','Empanadas Susi','La Victoria','Colombina','Puma','Postobón',
+  'Garabatos','Discolacteos','Yupi','Freskaleche','Oreo','Bodega'];
+
+let productos = [];
+let filtro = 'Todos';
+let actual = null;
+let listaProv = [];
+const NUEVO = '__nuevo__';
+
+const $ = id => document.getElementById(id);
+const num = v => { const n = Number(String(v ?? '').replace(/[^\d]/g, '')); return n > 0 ? n : null; };
+const pesos = n => n == null ? '' : '$' + Math.round(n).toLocaleString('es-CO');
+const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const grupo = p => p['Subcategoría'] || p['Categoría'] || 'Otros';
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('ver');
+  setTimeout(() => t.classList.remove('ver'), 2200);
+}
+
+async function cargar() {
+  try {
+    const r = await fetch(API_URL);
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    productos = d.productos;
+    pintarChips();
+    pintarProveedores();
+    pintar();
+  } catch (e) {
+    $('estado').textContent = 'No se pudo cargar el catálogo. Revisa la conexión o la URL de la app.';
+  }
+}
+
+function pintarChips() {
+  const grupos = ['Todos', ...new Set(productos.map(grupo))];
+  $('chips').innerHTML = grupos.map(g =>
+    `<button class="chip ${g === filtro ? 'on' : ''}" data-g="${g}">${g}</button>`).join('');
+}
+
+function pintarProveedores() {
+  const set = new Set(PROVEEDORES_BASE.concat(listaProv));
+  productos.forEach(p => {
+    if (p['Proveedor']) set.add(String(p['Proveedor']).trim());
+    if (p['Proveedor alterno']) set.add(String(p['Proveedor alterno']).trim());
+  });
+  listaProv = [...set].sort((a, b) => a.localeCompare(b, 'es'));
+  ['f-prov', 'f-prov2'].forEach(id => {
+    const sel = $(id), previo = sel.value;
+    sel.innerHTML = '<option value="">Sin proveedor</option>' +
+      listaProv.map(p => `<option value="${p}">${p}</option>`).join('') +
+      `<option value="${NUEVO}">+ Agregar proveedor nuevo...</option>`;
+    sel.value = listaProv.includes(previo) ? previo : '';
+  });
+}
+
+// Pone un proveedor en una lista desplegable; si no existe, lo agrega
+function ponerProveedor(id, nombre) {
+  nombre = String(nombre || '').trim();
+  if (nombre && !listaProv.includes(nombre)) { listaProv.push(nombre); pintarProveedores(); }
+  $(id).value = nombre;
+  $(id).dataset.previo = nombre;
+}
+
+// Cuando se escoge "Agregar proveedor nuevo"
+function alCambiarProveedor(e) {
+  const sel = e.target;
+  if (sel.value !== NUEVO) { sel.dataset.previo = sel.value; return; }
+  const nombre = (prompt('Nombre del proveedor nuevo:') || '').trim();
+  if (!nombre) { sel.value = sel.dataset.previo || ''; return; }
+  const existente = listaProv.find(p => norm(p) === norm(nombre));
+  ponerProveedor(sel.id, existente || nombre);
+}
+
+function claseMargen(m) { return m < 0.25 ? 'bajo' : m < 0.4 ? 'medio' : 'alto'; }
+
+function lineaProveedor(nombre, costo, venta, esMejor, nota) {
+  if (!nombre && costo == null && !nota) return '';
+  const m = (venta && costo) ? (venta - costo) / venta : null;
+  return `<div class="prov ${esMejor ? 'mejor' : ''}">
+    <span>${nombre || '<span class="q">Sin proveedor</span>'}${esMejor ? '<span class="tag">más barato</span>' : ''}</span>
+    <span>${costo != null ? pesos(costo) : '<span class="q">sin costo</span>'}
+      ${m != null ? ` · <span class="mg ${claseMargen(m)}">${Math.round(m * 100)}%</span>` : ''}</span>
+  </div>${nota ? `<div class="nota">${nota}</div>` : ''}`;
+}
+
+function pintar() {
+  const q = norm($('buscar').value.trim());
+  const lista = productos.filter(p => {
+    if (filtro !== 'Todos' && grupo(p) !== filtro) return false;
+    if (!q) return true;
+    return norm(p['Producto'] + ' ' + p['ID'] + ' ' + p['Proveedor'] + ' ' + p['Proveedor alterno']).includes(q);
+  });
+
+  $('estado').textContent = `${lista.length} producto${lista.length === 1 ? '' : 's'}`;
+  $('lista').innerHTML = lista.map(p => {
+    const venta = num(p['Precio de venta']);
+    const c1 = num(p['Costo']), c2 = num(p['Costo alterno']);
+    const mejor1 = c1 != null && c2 != null && c1 < c2;
+    const mejor2 = c1 != null && c2 != null && c2 < c1;
+    const l1 = lineaProveedor(p['Proveedor'], c1, venta, mejor1, p['Nota']);
+    const l2 = lineaProveedor(p['Proveedor alterno'], c2, venta, mejor2, p['Nota alterno']);
+    return `<div class="card" data-id="${p['ID']}">
+      <div class="top">
+        <div><div class="nombre">${p['Producto']}</div><div class="meta">${p['ID']} · ${grupo(p)}${p['Presentación'] ? ' · ' + p['Presentación'] : ''}</div></div>
+        <div class="venta">${venta ? pesos(venta) : '—'}<small>venta</small></div>
+      </div>
+      ${l1 || l2 ? l1 + l2 : '<div class="vacio">Sin costos registrados. Toca para agregar.</div>'}
+    </div>`;
+  }).join('');
+}
+
+function abrir(id) {
+  actual = productos.find(p => String(p['ID']) === String(id));
+  if (!actual) return;
+  $('panel').classList.remove('modo-nuevo');
+  $('f-pres').value = actual['Presentación'] || '';
+  $('f-unid').value = actual['Unidades por paquete'] || '';
+  $('p-nombre').textContent = actual['Producto'];
+  $('p-meta').textContent = `${actual['ID']} · ${grupo(actual)}`;
+  $('f-venta').value = actual['Precio de venta'] || '';
+  ponerProveedor('f-prov', actual['Proveedor']);
+  $('f-costo').value = actual['Costo'] || '';
+  ponerProveedor('f-prov2', actual['Proveedor alterno']);
+  $('f-costo2').value = actual['Costo alterno'] || '';
+  $('f-nota').value = actual['Nota'] || '';
+  $('f-nota2').value = actual['Nota alterno'] || '';
+  $('fondo').style.display = 'block';
+  $('panel').classList.add('abierto');
+}
+
+function abrirNuevo() {
+  actual = { nuevo: true };
+  $('panel').classList.add('modo-nuevo');
+  $('p-nombre').textContent = 'Nuevo producto';
+  $('p-meta').textContent = 'El código se asigna solo según el grupo';
+  ['f-nombre','f-pres','f-unid','f-venta','f-costo','f-nota','f-costo2','f-nota2'].forEach(i => $(i).value = '');
+  $('f-cat').value = ''; $('f-sub').value = '';
+  ponerProveedor('f-prov', ''); ponerProveedor('f-prov2', '');
+  $('caja-sub').style.visibility = 'visible';
+  $('fondo').style.display = 'block';
+  $('panel').classList.add('abierto');
+  setTimeout(() => $('f-nombre').focus(), 250);
+}
+
+function cerrar() {
+  $('panel').classList.remove('abierto');
+  $('fondo').style.display = 'none';
+  actual = null;
+}
+
+async function guardar() {
+  if (!actual) return;
+  const campos = {
+    'Presentación': $('f-pres').value.trim(),
+    'Unidades por paquete': num($('f-unid').value) ?? '',
+    'Precio de venta': num($('f-venta').value) ?? '',
+    'Proveedor': $('f-prov').value.trim(),
+    'Costo': num($('f-costo').value) ?? '',
+    'Proveedor alterno': $('f-prov2').value.trim(),
+    'Costo alterno': num($('f-costo2').value) ?? '',
+    'Nota': $('f-nota').value.trim(),
+    'Nota alterno': $('f-nota2').value.trim()
+  };
+  let cuerpo;
+  if (actual.nuevo) {
+    const nombre = $('f-nombre').value.trim(), cat = $('f-cat').value, sub = $('f-sub').value;
+    if (!nombre) return toast('Escribe el nombre del producto');
+    if (!cat) return toast('Escoge la categoría');
+    if (cat === 'Reventa' && !sub) return toast('Escoge el grupo');
+    const rep = productos.find(p => norm(p['Producto']) === norm(nombre));
+    if (rep) return toast('Ya existe: ' + rep['Producto'] + ' (' + rep['ID'] + ')');
+    Object.assign(campos, { 'Producto': nombre, 'Categoría': cat, 'Subcategoría': cat === 'Reventa' ? sub : '' });
+    cuerpo = { accion: 'crear', campos };
+  } else {
+    cuerpo = { id: actual['ID'], campos };
+  }
+  const btn = $('b-guardar');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  try {
+    const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify(cuerpo) });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    if (actual.nuevo) {
+      cerrar();
+      toast('Producto creado: ' + d.id);
+      await cargar();
+    } else {
+      Object.assign(actual, campos);
+      pintarProveedores();
+      pintar();
+      cerrar();
+      toast('Guardado');
+    }
+  } catch (e) {
+    toast('No se pudo guardar: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
+}
+
+function intercambiar() {
+  const p = $('f-prov').value, c = $('f-costo').value, n = $('f-nota').value;
+  ponerProveedor('f-prov', $('f-prov2').value); $('f-costo').value = $('f-costo2').value; $('f-nota').value = $('f-nota2').value;
+  ponerProveedor('f-prov2', p); $('f-costo2').value = c; $('f-nota2').value = n;
+}
+
+// Eventos
+$('buscar').addEventListener('input', pintar);
+$('chips').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  filtro = b.dataset.g; pintarChips(); pintar();
+});
+$('lista').addEventListener('click', e => {
+  const c = e.target.closest('.card'); if (c) abrir(c.dataset.id);
+});
+$('fondo').addEventListener('click', cerrar);
+$('b-cancelar').addEventListener('click', cerrar);
+$('b-guardar').addEventListener('click', guardar);
+$('b-swap').addEventListener('click', intercambiar);
+$('b-nuevo').addEventListener('click', abrirNuevo);
+$('f-cat').addEventListener('change', () => {
+  $('caja-sub').style.visibility = $('f-cat').value === 'Reventa' || $('f-cat').value === '' ? 'visible' : 'hidden';
+});
+$('f-prov').addEventListener('change', alCambiarProveedor);
+$('f-prov2').addEventListener('change', alCambiarProveedor);
+
+cargar();
+</script>
+</body>
+</html>
