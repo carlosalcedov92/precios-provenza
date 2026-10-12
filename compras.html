@@ -168,9 +168,13 @@ function pintarResultados() {
 
   let html = hallados.map(p => {
     const ya = enLista(p);
+    const op = mejorOpcion(p);
+    const provTxt = op.mejor.prov
+      ? esc(op.mejor.prov) + (op.mejor.costo != null ? ' ' + pesos(op.mejor.costo) : '')
+      : (op.mejor.costo != null ? 'sin proveedor ' + pesos(op.mejor.costo) : 'sin proveedor');
     return `<div class="res ${ya ? 'ya' : ''}" data-id="${esc(p['ID'])}">
       <div><div class="nombre">${esc(p['Producto'])}</div>
-      <div class="meta">${esc(grupo(p))}${p['Presentación'] ? ' · ' + esc(p['Presentación']) : ''}</div></div>
+      <div class="meta">${esc(grupo(p))}${p['Presentación'] ? ' · ' + esc(p['Presentación']) : ''} · ${provTxt}</div></div>
       <div class="accion">${ya ? '✓ En la lista' : '+ Anotar'}</div>
     </div>`;
   }).join('');
